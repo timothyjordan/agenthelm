@@ -72,7 +72,7 @@ def rbox(name, size, loc, material, bevel=0.03):
     bpy.ops.object.modifier_apply(modifier=mod.name)
     return o
 
-def profile_obj(name, profile, width, loc, material, yaw=0.0):
+def profile_obj(name, profile, width, loc, material, yaw=0.0, bevel=0.0):
     """Extrude a closed side profile (authoring z, y pairs) along x.
 
     This is how the real consoles and chair shells are shaped: a drawn
@@ -95,6 +95,14 @@ def profile_obj(name, profile, width, loc, material, yaw=0.0):
     bpy.context.collection.objects.link(o)
     o.location = P(*loc)
     o.rotation_euler = (0, 0, -yaw)
+    if bevel:
+        for poly in mesh.polygons:
+            poly.use_smooth = True
+        mod = o.modifiers.new("bev", "BEVEL")
+        mod.width = bevel
+        mod.segments = 3
+        bpy.context.view_layer.objects.active = o
+        bpy.ops.object.modifier_apply(modifier=mod.name)
     return o
 
 def rounded_frame(name, w, h, inset, corner, depth, loc, material):
@@ -326,7 +334,7 @@ def loft_shell(name, loc_fn, scale, widen, material, yaw):
             # offset along spine normal in the authoring z-y plane, rotated by yaw
             oz, oy = nz * off, ny * off
             wx, wy, wz = loc_fn(sx, py + oy, pz + oz)
-            verts[-4 + j] = (wx, wy, wz)
+            verts[-4 + j] = P(wx, wy, wz)
     for i in range(n - 1):
         a, b = 4 * i, 4 * (i + 1)
         faces += [(a, b, b + 1, a + 1), (a + 3, a + 2, b + 2, b + 3),
@@ -406,35 +414,11 @@ def arc_flat(name, rxo, rzo, rxi, rzi, zc, amin, amax, y, material, steps=28):
     bpy.context.collection.objects.link(o)
     return o
 
-pts = []
-for i in range(25):
-    a = math.radians(-82 + 164 * i / 24)
-    pts.append(P(2.55 * math.sin(a), 1.07, 2.35 + 1.55 * math.cos(a)))
-curve = bpy.data.curves.new("RailTube", "CURVE")
-curve.dimensions = "3D"
-curve.bevel_depth = 0.105
-spline = curve.splines.new("POLY")
-spline.points.add(len(pts) - 1)
-for p, co in zip(spline.points, pts):
-    p.co = (*co, 1)
-tube = bpy.data.objects.new("RailTube", curve)
-tube.data.materials.append(WOOD)
-tube.scale = (1, 1, 0.85)
-bpy.context.collection.objects.link(tube)
+arc_flat("RailTop", 2.80, 1.80, 2.30, 1.30, 2.35, -80, 80, 1.05, WOOD)
+arc_band("RailOuter", 2.80, 1.80, 2.35, -80, 80, 0.55, 1.05, WOOD, steps=28)
+arc_band("RailInner", 2.30, 1.30, 2.35, -80, 80, 0.78, 1.05, WOOD, steps=28)
 for sx in (-1, 1):
-    pts = [P(sx * 2.52, 1.05, 2.57), P(sx * 2.60, 0.70, 2.45), P(sx * 2.63, 0.35, 2.28), P(sx * 2.64, 0.08, 2.18)]
-    curve = bpy.data.curves.new(f"RailEnd{sx}", "CURVE")
-    curve.dimensions = "3D"
-    curve.bevel_depth = 0.085
-    spline = curve.splines.new("POLY")
-    spline.points.add(len(pts) - 1)
-    for p, co in zip(spline.points, pts):
-        p.co = (*co, 1)
-    end_o = bpy.data.objects.new(f"RailEnd{sx}", curve)
-    end_o.data.materials.append(WOOD)
-    bpy.context.collection.objects.link(end_o)
-
-arc_band("RailApron", 2.55, 1.55, 2.35, -80, 80, 0.52, 1.00, WOOD, steps=28)
+    fin = profile_obj(f"RailFin{sx}", [(-0.20, 0.02), (-0.12, 1.03), (0.14, 1.03), (0.26, 0.02)], 0.36, (sx * 2.55, 0, 2.58), WOOD, yaw=sx * -0.30, bevel=0.03)
 wedge = profile_obj("TacticalWedge", [(-0.30, 0.18), (-0.30, 1.00), (0.34, 1.00), (0.42, 0.18)], 1.5, (0, 0, 3.86), WOOD)
 
 placed("TacticalBody", (1.15, 0.55, 0.42), (0, 0.78, 3.82), TAN)
@@ -449,8 +433,8 @@ def forward_station(name, x, yaw):
     chair(f"{name}Chair", x, -2.15, yaw=yaw, scale=1.0)
     c, s = math.cos(yaw), math.sin(yaw)
     cx, cz = x - 1.15 * s, -2.15 - 1.15 * c
-    profile_obj(f"{name}Body", CONSOLE_PROFILE, 1.34, (cx, 0, cz), TAN, yaw=yaw)
-    profile_obj(f"{name}Shoulder", [(-0.14, 0.55), (0.24, 0.78), (0.36, 0.78), (0.38, 0.40)], 1.16, (cx, 0, cz), TAN, yaw=yaw)
+    profile_obj(f"{name}Body", CONSOLE_PROFILE, 1.34, (cx, 0, cz), TAN, yaw=yaw, bevel=0.045)
+    profile_obj(f"{name}Shoulder", [(-0.14, 0.55), (0.24, 0.78), (0.36, 0.78), (0.38, 0.40)], 1.16, (cx, 0, cz), TAN, yaw=yaw, bevel=0.04)
     top = rbox(f"{name}Top", (1.24, 0.03, 0.52), (cx, 0.68, cz - 0.02), LCARS, 0.01)
     top.rotation_euler = (-0.60, 0, -yaw)
 
@@ -461,6 +445,10 @@ forward_station("Ops", 1.55, 0.22)
 arc_band("AftSoffit", 4.14, 5.62, 0.6, -56, 56, 1.58, 2.62, SURROUND, steps=28)
 arc_band("AftSoffitLip", 3.98, 5.46, 0.6, -56, 56, 2.42, 2.58, TAN, steps=28)
 
+
+arc_band("AftDisplayBand", 4.06, 5.52, 0.6, -52, 52, 1.34, 1.98, LCARS, steps=36)
+arc_band("AftBandTrim", 4.02, 5.48, 0.6, -52, 52, 1.98, 2.06, TAN, steps=36)
+
 # Aft station wall: one continuous run of consoles on the raised deck.
 for i, adeg in enumerate((-44, -22, 0, 22, 44)):
     a = math.radians(adeg)
@@ -469,7 +457,6 @@ for i, adeg in enumerate((-44, -22, 0, 22, 44)):
     inw = Vector((0 - x, 0, 0.5 - z)); inw.normalize()
     wedge = profile_obj(f"Aft{i}Wedge", [(-0.34, 0.18), (-0.34, 0.82), (0.08, 1.28), (0.30, 1.30), (0.34, 0.18)], 2.28, (x, 0, z), TAN, yaw=yaw)
     plate = profile_obj(f"Aft{i}Plate", [(-0.31, 0.86), (0.05, 1.29), (0.08, 1.25), (-0.28, 0.83)], 2.16, (x, 0, z), DARK, yaw=yaw)
-    placed(f"Aft{i}Band", (2.30, 0.62, 0.09), (x, 1.62, z), LCARS, yaw=yaw)
 
 
 world = bpy.data.worlds["World"]
@@ -517,7 +504,7 @@ def render(name, loc, look, lens=38):
     bpy.ops.render.render(write_still=True)
     bpy.data.objects.remove(cam, do_unlink=True)
 
-render("captain", (0, 1.62, 2.1), (0, 1.5, -6))
+render("captain", (0, 1.52, 1.82), (0, 1.45, -6))
 render("aft", (0, 1.75, -1.5), (0, 1.5, 6.2), lens=30)
 render("tactical-aft", (0, 1.7, -0.8), (0, 1.5, 6.2), lens=28)
 render("hero-aft", (0, 1.80, -3.2), (0, 1.45, 4.2), lens=25)

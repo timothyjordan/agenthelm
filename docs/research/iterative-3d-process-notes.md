@@ -117,6 +117,26 @@ Checkpoints (pause, update this file, then continue):
 | Date | System | Method | Panel median before | After | Note |
 | --- | --- | --- | --- | --- | --- |
 | 2026-10-21 | all | scripted profiles, single judge | n/a | about 5.0 | plateau, see judge-loop README |
+| 2026-10-21 | Conn/Ops + chairs | subdivision loft shells, bevelled consoles, 3-judge panel | 4 (single judge) | panel median 4 | captain camera found inside captain chair; fixed to seated eye |
+| 2026-10-21 | aft wall | continuous curved display band replaces 5 flat boxes | 4 | 5 | panel overall 4 to 5; next worst Conn/Ops, dome, doors at 4 |
+| 2026-10-21 | chairs (all) | coordinate fix: loft shells were transposed (P conversion missing) | 6 | 6 | dome and doors 4 to 5 in the same round; slab in captain view was the captain shell |
+| 2026-10-21 | rail | flat channel beam with tapered fins replaces round tube | 4 | 5 | doors reach 6; panel overall stays 5 |
+
+## Checkpoint log
+
+- 2026-10-21, plateau checkpoint (panel): overall median 5 for
+  three consecutive panel rounds (5, 5, 5) while individual systems
+  still moved (doors 4 to 6, rail and aft wall 4 to 5, dome 4 to 5
+  to 4). Per process, iteration pauses here for a method change,
+  not more parameter tweaks. Remaining 4s: Conn/Ops and dome.
+  Candidate method changes, in order: (1) build Conn/Ops and the
+  dome as subdivision surfaces over denser lofts with more spine
+  sections, judged from a Conn/Ops close camera that does not yet
+  exist; (2) camera-match two Tier S stills (fSpy-style) so panel
+  views share the stills' viewpoints; (3) accept 5 to 6 mesh level
+  and move to materials, since several judge defects (luminous dome
+  panels, wood rail) are material readings leaking into a mesh
+  score even in clay.
 
 Add a row per round from here on. A round without a row did not
 happen.
