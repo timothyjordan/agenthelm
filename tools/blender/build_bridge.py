@@ -62,6 +62,79 @@ def disc(name, rx, rz, y, material, zc=0.0, depth=0.08):
     o.data.materials.append(material)
     return o
 
+def rbox(name, size, loc, material, bevel=0.03):
+    """Box with bevelled edges, so highlights read like molded set pieces."""
+    o = box(name, size, loc, material)
+    mod = o.modifiers.new("bev", "BEVEL")
+    mod.width = bevel
+    mod.segments = 3
+    bpy.context.view_layer.objects.active = o
+    bpy.ops.object.modifier_apply(modifier=mod.name)
+    return o
+
+def profile_obj(name, profile, width, loc, material, yaw=0.0):
+    """Extrude a closed side profile (authoring z, y pairs) along x.
+
+    This is how the real consoles and chair shells are shaped: a drawn
+    side silhouette with constant width, not stacked boxes.
+    """
+    verts, faces = [], []
+    n = len(profile)
+    for side in (-width / 2, width / 2):
+        for (pz, py) in profile:
+            verts.append(P(side, py, pz))
+    faces.append(tuple(range(n - 1, -1, -1)))
+    faces.append(tuple(range(n, 2 * n)))
+    for i in range(n):
+        j = (i + 1) % n
+        faces.append((i, j, n + j, n + i))
+    mesh = bpy.data.meshes.new(name)
+    mesh.from_pydata(verts, [], faces)
+    mesh.materials.append(material)
+    o = bpy.data.objects.new(name, mesh)
+    bpy.context.collection.objects.link(o)
+    o.location = P(*loc)
+    o.rotation_euler = (0, 0, -yaw)
+    return o
+
+def rounded_frame(name, w, h, inset, corner, depth, loc, material):
+    """Rounded rectangle frame (the viewer surround) as a flat ring mesh."""
+    def outline(wd, ht, r, seg=6):
+        pts = []
+        for cx, cy, a0 in [(wd/2-r, ht/2-r, 0), (-(wd/2-r), ht/2-r, 90),
+                           (-(wd/2-r), -(ht/2-r), 180), (wd/2-r, -(ht/2-r), 270)]:
+            for i in range(seg + 1):
+                a = math.radians(a0 + 90 * i / seg)
+                pts.append((cx + r * math.cos(a), cy + r * math.sin(a)))
+        return pts
+    outer = outline(w, h, corner)
+    inner = outline(w - 2 * inset, h - 2 * inset, max(0.05, corner - inset))
+    verts, faces = [], []
+    zf, zb = loc[2] + depth / 2, loc[2] - depth / 2
+    for ring in (outer, inner):
+        for (px, py) in ring:
+            verts.append(P(px + loc[0], py + loc[1], zf))
+    n = len(outer)
+    for i in range(n):
+        j = (i + 1) % n
+        faces.append((i, j, n + j, n + i))
+    # side walls, outer and inner, give the ring depth
+    base = len(verts)
+    for ring in (outer, inner):
+        for (px, py) in ring:
+            verts.append(P(px + loc[0], py + loc[1], zb))
+    for i in range(n):
+        j = (i + 1) % n
+        faces.append((i, base + j, base + i))
+        faces.append((n + i, n + j, base + n + j, base + n + i))
+        faces.append((base + i, base + j, base + n + j, base + n + i))
+    mesh = bpy.data.meshes.new(name)
+    mesh.from_pydata(verts, [], faces)
+    mesh.materials.append(material)
+    o = bpy.data.objects.new(name, mesh)
+    bpy.context.collection.objects.link(o)
+    return o
+
 def ring_wall(name, rx, rz, y0, y1, material, segments=64):
     verts = []
     for i in range(segments):
@@ -123,7 +196,7 @@ for k in range(6):
         pts.append(P(ax, ay, az))
     curve = bpy.data.curves.new(f"Rib{k}", "CURVE")
     curve.dimensions = "3D"
-    curve.bevel_depth = 0.09
+    curve.bevel_depth = 0.065
     spline = curve.splines.new("POLY")
     spline.points.add(len(pts) - 1)
     for p, co in zip(spline.points, pts):
@@ -132,6 +205,27 @@ for k in range(6):
     rib.data.materials.append(RIB)
     bpy.context.collection.objects.link(rib)
 
+
+
+for frac in (0.38, 0.66, 0.88):
+    a = (math.pi / 2) * frac
+    pts = []
+    for i in range(49):
+        th = 2 * math.pi * i / 48
+        ax = 4.15 * math.sin(a) * math.sin(th)
+        az = 0.5 + 5.75 * math.sin(a) * math.cos(th)
+        ay = 3.55 + 1.35 * math.cos(a) - 0.05
+        pts.append(P(ax, ay, az))
+    curve = bpy.data.curves.new(f"DomeRing{frac}", "CURVE")
+    curve.dimensions = "3D"
+    curve.bevel_depth = 0.045
+    spline = curve.splines.new("POLY")
+    spline.points.add(len(pts) - 1)
+    for p, co in zip(spline.points, pts):
+        p.co = (*co, 1)
+    ring_o = bpy.data.objects.new(f"DomeRing{frac}", curve)
+    ring_o.data.materials.append(RIB)
+    bpy.context.collection.objects.link(ring_o)
 
 # Central oval ring on the dome (frame 01 Tier S).
 pts = []
@@ -152,8 +246,8 @@ oval.data.materials.append(RIB)
 bpy.context.collection.objects.link(oval)
 
 box("ViewerWall", (6.2, 3.65, 0.2), (0, 1.82, -5.3), WALL)
-box("ViewerSurround", (6.1, 2.7, 0.14), (0, 1.82, -5.18), SURROUND)
-box("Viewer", (4.8, 1.65, 0.08), (0, 1.85, -5.08), SCREEN)
+rounded_frame("ViewerSurround", 6.1, 2.7, 0.34, 0.42, 0.20, (0, 1.82, -5.16), SURROUND)
+box("Viewer", (5.30, 1.95, 0.08), (0, 1.82, -5.10), SCREEN)
 box("ViewerSill", (5.9, 0.18, 0.3), (0, 0.62, -5.12), SURROUND)
 
 # Doors: light grey panelled slabs in tan alcove frames, angled to face
@@ -191,29 +285,36 @@ def placed(name, size, loc, material, yaw=0.0, pitch=0.0):
     o.rotation_euler = (pitch, 0, -yaw)
     return o
 
+CHAIR_PROFILE = [
+    (-0.36, 0.40), (-0.36, 0.54), (0.16, 0.58), (0.38, 1.16),
+    (0.50, 1.19), (0.33, 0.64), (0.29, 0.40),
+]
+ARM_PROFILE = [(-0.30, 0.60), (-0.30, 0.74), (0.22, 0.80), (0.28, 0.62)]
+
 def chair(name, x, z, yaw=0.0, deck=0.0, scale=1.0):
     c, s = math.cos(yaw), math.sin(yaw)
-    def at(dx, dz):
-        return (x + dx * c - dz * s, 0, z + dx * s + dz * c)
-    for part, size, dx, dy, dz, m in [
-        ("base", (0.55, 0.10, 0.55), 0, 0.05, 0, SURROUND),
-        ("post", (0.20, 0.40, 0.20), 0, 0.30, 0, SURROUND),
-        ("seat", (0.62, 0.15, 0.58), 0, 0.55, 0, UPHOL),
-        ("back", (0.62, 0.74, 0.16), 0, 0.95, 0.30, UPHOL),
-        ("backshell", (0.66, 0.78, 0.07), 0, 0.95, 0.40, UPHOL_D),
-        ("rib1", (0.64, 0.03, 0.02), 0, 0.78, 0.45, UPHOL),
-        ("rib2", (0.64, 0.03, 0.02), 0, 0.95, 0.46, UPHOL),
-        ("rib3", (0.64, 0.03, 0.02), 0, 1.12, 0.45, UPHOL),
-        ("head", (0.38, 0.16, 0.14), 0, 1.38, 0.33, UPHOL),
-        ("armL", (0.10, 0.07, 0.52), -0.38, 0.78, 0.02, UPHOL_D),
-        ("armR", (0.10, 0.07, 0.52), 0.38, 0.78, 0.02, UPHOL_D),
-        ("padL", (0.09, 0.03, 0.20), -0.38, 0.83, -0.10, LCARS),
-        ("padR", (0.09, 0.03, 0.20), 0.38, 0.83, -0.10, LCARS),
-    ]:
-        px, _, pz = at(dx * scale, dz * scale)
-        o = placed(f"{name}-{part}", (size[0] * scale, size[1] * scale, size[2] * scale),
-                   (px, deck + dy * scale, pz), m, yaw=yaw,
-                   pitch=-0.10 if part in ("back", "backshell", "head", "rib1", "rib2", "rib3") else 0.0)
+    def loc(dx, dy, dz):
+        return (x + (dx * c - dz * s) * scale, deck + dy * scale, z + (dx * s + dz * c) * scale)
+    profile_obj(f"{name}-shell", [(pz * scale, py * scale) for pz, py in CHAIR_PROFILE],
+                0.60 * scale, loc(0, 0, 0), UPHOL_D, yaw=yaw)
+    sb = rbox(f"{name}-seat", (0.56 * scale, 0.11 * scale, 0.52 * scale), loc(0, 0.60, -0.06), UPHOL, 0.04)
+    sb.rotation_euler = (0, 0, -yaw)
+    bk = rbox(f"{name}-backpad", (0.54 * scale, 0.55 * scale, 0.09 * scale), loc(0, 0.90, 0.26), UPHOL, 0.04)
+    bk.rotation_euler = (-0.17, 0, -yaw)
+    hd = rbox(f"{name}-head", (0.38 * scale, 0.15 * scale, 0.10 * scale), loc(0, 1.22, 0.40), UPHOL, 0.04)
+    hd.rotation_euler = (-0.17, 0, -yaw)
+    rbox(f"{name}-base", (0.62 * scale, 0.10 * scale, 0.60 * scale), loc(0, 0.05, 0), SURROUND, 0.02)
+    rbox(f"{name}-post", (0.32 * scale, 0.38 * scale, 0.30 * scale), loc(0, 0.28, 0.02), SURROUND, 0.02)
+    for side, sx in (("L", -0.37), ("R", 0.37)):
+        arm_loc = loc(sx, 0, 0)
+        profile_obj(f"{name}-arm{side}", [(pz * scale, py * scale) for pz, py in ARM_PROFILE],
+                    0.11 * scale, arm_loc, UPHOL_D, yaw=yaw)
+        # arm profile is extruded along local x; shift it out to the side
+        arm = bpy.context.scene.objects[f"{name}-arm{side}"]
+        arm.location = P(*loc(sx + (0.055 * scale if sx > 0 else -0.055 * scale), 0, 0))
+        pd = rbox(f"{name}-pad{side}", (0.10 * scale, 0.03 * scale, 0.22 * scale),
+                  loc(sx, 0.79, -0.08), LCARS, 0.01)
+        pd.rotation_euler = (0, 0, -yaw)
 
 chair("Captain", 0, 2.05, scale=1.12)
 chair("CommandP", -1.3, 2.15)
@@ -224,9 +325,13 @@ pts = []
 for i in range(25):
     a = math.radians(-82 + 164 * i / 24)
     pts.append(P(2.55 * math.sin(a), 1.04, 2.35 + 1.55 * math.cos(a)))
+pts.insert(0, P(-2.62, 0.55, 2.02))
+pts.insert(0, P(-2.64, 0.16, 1.94))
+pts.append(P(2.62, 0.55, 2.02))
+pts.append(P(2.64, 0.16, 1.94))
 curve = bpy.data.curves.new("Rail", "CURVE")
 curve.dimensions = "3D"
-curve.bevel_depth = 0.09
+curve.bevel_depth = 0.065
 spline = curve.splines.new("POLY")
 spline.points.add(len(pts) - 1)
 for p, co in zip(spline.points, pts):
@@ -238,30 +343,23 @@ for i in range(7):
     a = math.radians(-75 + 150 * i / 6)
     box(f"RailPost{i}", (0.09, 1.0, 0.09), (2.55 * math.sin(a), 0.5, 2.35 + 1.55 * math.cos(a)), WOOD)
 
-rverts, rfaces = [], []
-for i in range(25):
-    a = math.radians(-82 + 164 * i / 24)
-    px, pz = 2.55 * math.sin(a), 2.35 + 1.55 * math.cos(a)
-    rverts.append(P(px, 0.12, pz))
-    rverts.append(P(px, 0.98, pz))
-for i in range(24):
-    rfaces.append((2 * i, 2 * (i + 1), 2 * (i + 1) + 1, 2 * i + 1))
-rmesh = bpy.data.meshes.new("RailRibbon")
-rmesh.from_pydata(rverts, [], rfaces)
-rmesh.materials.append(WOOD)
-ribbon_obj = bpy.data.objects.new("RailRibbon", rmesh)
-bpy.context.collection.objects.link(ribbon_obj)
-
 placed("TacticalBody", (1.15, 0.55, 0.42), (0, 0.78, 3.82), TAN)
 placed("TacticalTop", (1.15, 0.05, 0.46), (0, 1.08, 3.80), LCARS, pitch=0.5)
+
+CONSOLE_PROFILE = [
+    (-0.40, 0.02), (-0.40, 0.48), (-0.12, 0.74), (0.26, 0.99),
+    (0.34, 0.99), (0.38, 0.02),
+]
 
 def forward_station(name, x, yaw):
     chair(f"{name}Chair", x, -2.35, yaw=yaw)
     c, s = math.cos(yaw), math.sin(yaw)
     cx, cz = x - 0.95 * s, -2.35 - 0.95 * c
-    placed(f"{name}Body", (1.3, 0.72, 0.72), (cx, 0.36, cz), TAN, yaw=yaw)
-    placed(f"{name}Top", (1.3, 0.05, 0.8), (cx, 0.82, cz), LCARS, yaw=yaw, pitch=-0.42)
-    placed(f"{name}Glow", (0.85, 0.02, 0.18), (cx, 0.90, cz + 0.08), GLOW, yaw=yaw, pitch=-0.42)
+    profile_obj(f"{name}Body", CONSOLE_PROFILE, 1.3, (cx, 0, cz), TAN, yaw=yaw)
+    top = rbox(f"{name}Top", (1.24, 0.03, 0.52), (cx, 0.90, cz - 0.02), LCARS, 0.01)
+    top.rotation_euler = (-0.60, 0, -yaw)
+    glow = rbox(f"{name}Glow", (0.85, 0.02, 0.18), (cx, 0.94, cz - 0.02), GLOW, 0.005)
+    glow.rotation_euler = (-0.60, 0, -yaw)
 
 forward_station("Conn", -1.55, -0.22)
 forward_station("Ops", 1.55, 0.22)
