@@ -122,8 +122,22 @@ Checkpoints (pause, update this file, then continue):
 | 2026-10-21 | chairs (all) | coordinate fix: loft shells were transposed (P conversion missing) | 6 | 6 | dome and doors 4 to 5 in the same round; slab in captain view was the captain shell |
 | 2026-10-21 | rail | flat channel beam with tapered fins replaces round tube | 4 | 5 | doors reach 6; panel overall stays 5 |
 
+| 2026-10-21 | Conn/Ops | denser loft spine, bevelled wedge consoles, still-matched cameras (match01, match05, connops-close) | 4 | 5 | rail fell 5 to 3 with the flat beam; dome stable worst at 4 |
+
+| 2026-10-21 | rail + dome | tube-over-apron rail restored, dome raised to 1.55 m rise, match01 reframed | rail 3, dome 4 | rail 4, dome 6 | panel overall still 5 (six straight panel rounds at 5); worst queue now Conn/Ops, aft wall, rail at 4 |
+
 ## Checkpoint log
 
+- 2026-10-21, second plateau checkpoint (panel): overall median
+  5 for six consecutive panel rounds. Every system now sits in the
+  4 to 6 band and rounds rotate which system is worst, the signature
+  of a method ceiling rather than a missing fix. The remaining
+  distance to the panel's 8 is sculpted production form (curved
+  console wraps, channel-padded chairs, coffered dome panels) that
+  scripted profiles approximate but do not reach. Decision for the
+  user: fund that sculpt work system by system (Conn/Ops, aft wall,
+  rail first), or lock meshes at this level and take the larger
+  visible gain from materials and LCARS.
 - 2026-10-21, plateau checkpoint (panel): overall median 5 for
   three consecutive panel rounds (5, 5, 5) while individual systems
   still moved (doors 4 to 6, rail and aft wall 4 to 5, dome 4 to 5

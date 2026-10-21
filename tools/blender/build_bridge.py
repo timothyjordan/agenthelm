@@ -178,7 +178,7 @@ for ir in range(RINGS + 1):
         th = 2 * math.pi * j / SEGS
         ax = 4.15 * math.sin(a) * math.sin(th)
         az = 0.5 + 5.75 * math.sin(a) * math.cos(th)
-        ay = 3.55 + 1.30 * math.cos(a)
+        ay = 3.55 + 1.55 * math.cos(a)
         verts.append(P(ax, ay, az))
 for ir in range(RINGS):
     for j in range(SEGS):
@@ -197,7 +197,7 @@ for k in range(12):
     for i in range(SEG + 1):
         t = math.pi * i / SEG
         lx = math.cos(t) * 4.08
-        ly = math.sin(t) * 1.24
+        ly = math.sin(t) * 1.48
         ax = lx * math.cos(ang)
         az = 0.5 + lx * math.sin(ang)
         ay = 3.56 + ly
@@ -217,7 +217,7 @@ pts = []
 for i in range(33):
     a = 2 * math.pi * i / 32
     ax, az = 2.1 * math.sin(a), 0.5 + 3.0 * math.cos(a)
-    ay = 3.5 + 0.84 * math.sqrt(max(0.05, 1 - (ax / 4.15) ** 2 - ((az - 0.5) / 5.75) ** 2))
+    ay = 3.5 + 1.05 * math.sqrt(max(0.05, 1 - (ax / 4.15) ** 2 - ((az - 0.5) / 5.75) ** 2))
     pts.append(P(ax, ay, az))
 curve = bpy.data.curves.new("DomeOval", "CURVE")
 curve.dimensions = "3D"
@@ -307,8 +307,10 @@ def placed(name, size, loc, material, yaw=0.0, pitch=0.0):
 
 def loft_shell(name, loc_fn, scale, widen, material, yaw):
     # (z, y, width) along the spine from seat front to back top
-    spine = [(-0.38, 0.48, 0.60), (-0.05, 0.52, 0.65), (0.16, 0.58, 0.63),
-             (0.25, 0.80, 0.59), (0.33, 0.99, 0.55), (0.42, 1.10, 0.49)]
+    spine = [(-0.38, 0.48, 0.60), (-0.22, 0.50, 0.64), (-0.05, 0.52, 0.65),
+             (0.08, 0.55, 0.64), (0.16, 0.58, 0.63), (0.21, 0.69, 0.61),
+             (0.25, 0.80, 0.59), (0.29, 0.90, 0.57), (0.33, 0.99, 0.55),
+             (0.38, 1.05, 0.52), (0.42, 1.10, 0.49)]
     verts, faces = [], []
     n = len(spine)
     for i, (pz, py, w) in enumerate(spine):
@@ -414,9 +416,21 @@ def arc_flat(name, rxo, rzo, rxi, rzi, zc, amin, amax, y, material, steps=28):
     bpy.context.collection.objects.link(o)
     return o
 
-arc_flat("RailTop", 2.80, 1.80, 2.30, 1.30, 2.35, -80, 80, 1.05, WOOD)
 arc_band("RailOuter", 2.80, 1.80, 2.35, -80, 80, 0.55, 1.05, WOOD, steps=28)
-arc_band("RailInner", 2.30, 1.30, 2.35, -80, 80, 0.78, 1.05, WOOD, steps=28)
+pts = []
+for i in range(25):
+    a = math.radians(-82 + 164 * i / 24)
+    pts.append(P(2.55 * math.sin(a), 1.10, 2.35 + 1.55 * math.cos(a)))
+curve = bpy.data.curves.new("RailTube", "CURVE")
+curve.dimensions = "3D"
+curve.bevel_depth = 0.095
+spline = curve.splines.new("POLY")
+spline.points.add(len(pts) - 1)
+for p, co in zip(spline.points, pts):
+    p.co = (*co, 1)
+tube = bpy.data.objects.new("RailTube", curve)
+tube.data.materials.append(WOOD)
+bpy.context.collection.objects.link(tube)
 for sx in (-1, 1):
     fin = profile_obj(f"RailFin{sx}", [(-0.20, 0.02), (-0.12, 1.03), (0.14, 1.03), (0.26, 0.02)], 0.36, (sx * 2.55, 0, 2.58), WOOD, yaw=sx * -0.30, bevel=0.03)
 wedge = profile_obj("TacticalWedge", [(-0.30, 0.18), (-0.30, 1.00), (0.34, 1.00), (0.42, 0.18)], 1.5, (0, 0, 3.86), WOOD)
@@ -432,11 +446,10 @@ CONSOLE_PROFILE = [
 def forward_station(name, x, yaw):
     chair(f"{name}Chair", x, -2.15, yaw=yaw, scale=1.0)
     c, s = math.cos(yaw), math.sin(yaw)
-    cx, cz = x - 1.15 * s, -2.15 - 1.15 * c
-    profile_obj(f"{name}Body", CONSOLE_PROFILE, 1.34, (cx, 0, cz), TAN, yaw=yaw, bevel=0.045)
+    cx, cz = x - 0.88 * s, -2.15 - 0.88 * c
+    profile_obj(f"{name}Body", CONSOLE_PROFILE, 1.34, (cx, 0, cz), TAN, yaw=yaw, bevel=0.065)
     profile_obj(f"{name}Shoulder", [(-0.14, 0.55), (0.24, 0.78), (0.36, 0.78), (0.38, 0.40)], 1.16, (cx, 0, cz), TAN, yaw=yaw, bevel=0.04)
-    top = rbox(f"{name}Top", (1.24, 0.03, 0.52), (cx, 0.68, cz - 0.02), LCARS, 0.01)
-    top.rotation_euler = (-0.60, 0, -yaw)
+    profile_obj(f"{name}Face", [(-0.16, 0.56), (0.22, 0.79), (0.27, 0.75), (-0.12, 0.53)], 1.24, (cx, 0, cz), LCARS, yaw=yaw, bevel=0.015)
 
 forward_station("Conn", -1.55, -0.22)
 forward_station("Ops", 1.55, 0.22)
@@ -510,6 +523,9 @@ render("tactical-aft", (0, 1.7, -0.8), (0, 1.5, 6.2), lens=28)
 render("hero-aft", (0, 1.80, -3.2), (0, 1.45, 4.2), lens=25)
 
 render("door-close", (-1.0, 1.5, 1.3), (-3.55, 1.25, 3.35), lens=32)
+render("match01", (0, 2.35, -4.6), (0, 1.10, 4.4), lens=22)
+render("match05", (3.25, 2.45, 3.6), (-1.1, 0.95, -4.2), lens=24)
+render("connops-close", (-0.5, 1.32, -1.55), (1.55, 0.72, -3.25), lens=35)
 render("aft-close", (2.0, 1.5, 1.6), (0.2, 1.05, 5.9), lens=30)
 render("chair-close", (2.1, 1.35, -0.4), (0, 0.85, 2.1), lens=34)
 
