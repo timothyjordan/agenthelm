@@ -179,6 +179,104 @@ door("TurboliftS", 2.95, 4.4)
 door("Ready", 2.85, -4.2)
 door("DoorP", -2.85, -4.2)
 
+# ---------------------------------------------------------------- furniture
+WOOD = mat("RailWood", (0.10, 0.045, 0.018), 0.35)
+UPHOL = mat("ChairCream", (0.48, 0.40, 0.31), 0.95)
+UPHOL_D = mat("ChairTan", (0.36, 0.28, 0.20), 0.95)
+LCARS = mat("LcarsBlack", (0.02, 0.02, 0.025), 0.18)
+GLOW = mat("LcarsGlow", (0.9, 0.55, 0.2), 0.5, emit=(1.0, 0.55, 0.18), strength=1.0)
+
+def placed(name, size, loc, material, yaw=0.0, pitch=0.0):
+    o = box(name, size, loc, material)
+    o.rotation_euler = (pitch, 0, -yaw)
+    return o
+
+def chair(name, x, z, yaw=0.0, deck=0.0, scale=1.0):
+    c, s = math.cos(yaw), math.sin(yaw)
+    def at(dx, dz):
+        return (x + dx * c - dz * s, 0, z + dx * s + dz * c)
+    for part, size, dx, dy, dz, m in [
+        ("base", (0.55, 0.10, 0.55), 0, 0.05, 0, SURROUND),
+        ("post", (0.20, 0.40, 0.20), 0, 0.30, 0, SURROUND),
+        ("seat", (0.62, 0.15, 0.58), 0, 0.55, 0, UPHOL),
+        ("back", (0.62, 0.74, 0.16), 0, 0.95, 0.30, UPHOL),
+        ("backshell", (0.66, 0.78, 0.07), 0, 0.95, 0.40, UPHOL_D),
+        ("rib1", (0.64, 0.03, 0.02), 0, 0.78, 0.45, UPHOL),
+        ("rib2", (0.64, 0.03, 0.02), 0, 0.95, 0.46, UPHOL),
+        ("rib3", (0.64, 0.03, 0.02), 0, 1.12, 0.45, UPHOL),
+        ("head", (0.38, 0.16, 0.14), 0, 1.38, 0.33, UPHOL),
+        ("armL", (0.10, 0.07, 0.52), -0.38, 0.78, 0.02, UPHOL_D),
+        ("armR", (0.10, 0.07, 0.52), 0.38, 0.78, 0.02, UPHOL_D),
+        ("padL", (0.09, 0.03, 0.20), -0.38, 0.83, -0.10, LCARS),
+        ("padR", (0.09, 0.03, 0.20), 0.38, 0.83, -0.10, LCARS),
+    ]:
+        px, _, pz = at(dx * scale, dz * scale)
+        o = placed(f"{name}-{part}", (size[0] * scale, size[1] * scale, size[2] * scale),
+                   (px, deck + dy * scale, pz), m, yaw=yaw,
+                   pitch=-0.10 if part in ("back", "backshell", "head", "rib1", "rib2", "rib3") else 0.0)
+
+chair("Captain", 0, 2.05, scale=1.12)
+chair("CommandP", -1.3, 2.15)
+chair("CommandS", 1.3, 2.15)
+
+# Wooden horseshoe rail around the command area, tactical console at aft centre.
+pts = []
+for i in range(25):
+    a = math.radians(-82 + 164 * i / 24)
+    pts.append(P(2.55 * math.sin(a), 1.04, 2.35 + 1.55 * math.cos(a)))
+curve = bpy.data.curves.new("Rail", "CURVE")
+curve.dimensions = "3D"
+curve.bevel_depth = 0.09
+spline = curve.splines.new("POLY")
+spline.points.add(len(pts) - 1)
+for p, co in zip(spline.points, pts):
+    p.co = (*co, 1)
+rail = bpy.data.objects.new("Rail", curve)
+rail.data.materials.append(WOOD)
+bpy.context.collection.objects.link(rail)
+for i in range(7):
+    a = math.radians(-75 + 150 * i / 6)
+    box(f"RailPost{i}", (0.09, 1.0, 0.09), (2.55 * math.sin(a), 0.5, 2.35 + 1.55 * math.cos(a)), WOOD)
+
+rverts, rfaces = [], []
+for i in range(25):
+    a = math.radians(-82 + 164 * i / 24)
+    px, pz = 2.55 * math.sin(a), 2.35 + 1.55 * math.cos(a)
+    rverts.append(P(px, 0.12, pz))
+    rverts.append(P(px, 0.98, pz))
+for i in range(24):
+    rfaces.append((2 * i, 2 * (i + 1), 2 * (i + 1) + 1, 2 * i + 1))
+rmesh = bpy.data.meshes.new("RailRibbon")
+rmesh.from_pydata(rverts, [], rfaces)
+rmesh.materials.append(WOOD)
+ribbon_obj = bpy.data.objects.new("RailRibbon", rmesh)
+bpy.context.collection.objects.link(ribbon_obj)
+
+placed("TacticalBody", (1.15, 0.55, 0.42), (0, 0.78, 3.82), TAN)
+placed("TacticalTop", (1.15, 0.05, 0.46), (0, 1.08, 3.80), LCARS, pitch=0.5)
+
+def forward_station(name, x, yaw):
+    chair(f"{name}Chair", x, -2.35, yaw=yaw)
+    c, s = math.cos(yaw), math.sin(yaw)
+    cx, cz = x - 0.95 * s, -2.35 - 0.95 * c
+    placed(f"{name}Body", (1.3, 0.72, 0.72), (cx, 0.36, cz), TAN, yaw=yaw)
+    placed(f"{name}Top", (1.3, 0.05, 0.8), (cx, 0.82, cz), LCARS, yaw=yaw, pitch=-0.42)
+    placed(f"{name}Glow", (0.85, 0.02, 0.18), (cx, 0.90, cz + 0.08), GLOW, yaw=yaw, pitch=-0.42)
+
+forward_station("Conn", -1.55, -0.22)
+forward_station("Ops", 1.55, 0.22)
+
+# Aft station wall: one continuous run of consoles on the raised deck.
+for i, adeg in enumerate((-44, -22, 0, 22, 44)):
+    a = math.radians(adeg)
+    x, z = 4.02 * math.sin(a), 0.6 + 5.48 * math.cos(a)
+    yaw = math.atan2(0 - x, 0.5 - z)
+    inw = Vector((0 - x, 0, 0.5 - z)); inw.normalize()
+    placed(f"Aft{i}Cabinet", (2.28, 0.85, 0.52), (x, 0.60, z), TAN, yaw=yaw)
+    placed(f"Aft{i}Slope", (2.28, 0.60, 0.07), (x + inw.x * 0.10, 1.30, z + inw.z * 0.10), DARK, yaw=yaw, pitch=0.35)
+    placed(f"Aft{i}Band", (2.30, 0.58, 0.09), (x, 1.92, z), LCARS, yaw=yaw)
+    placed(f"Aft{i}Glow", (1.15, 0.10, 0.03), (x + inw.x * 0.16, 1.32, z + inw.z * 0.16), GLOW, yaw=yaw, pitch=0.35)
+
 world = bpy.data.worlds["World"]
 world.use_nodes = True
 world.node_tree.nodes["Background"].inputs[0].default_value = (0.05, 0.045, 0.05, 1)
