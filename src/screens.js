@@ -51,6 +51,23 @@ export class ScreenPanel {
   draw() {
     const { ctx: c, canvas } = this;
     const W = canvas.width; const H = canvas.height;
+    if (this.id === 'main-viewer' && !this.url) {
+      // Idle viewer as seen in production stills: a space scene, no UI chrome.
+      c.fillStyle = '#010208'; c.fillRect(0, 0, W, H);
+      for (let i = 0; i < 420; i++) {
+        const x = ((i * 733) % W); const y = ((i * 389) % (H - 40));
+        const r = (i % 3) * 0.65 + 0.5;
+        c.fillStyle = i % 8 ? '#ffffff' : '#cfe0f2';
+        c.beginPath(); c.arc(x, y, r, 0, Math.PI * 2); c.fill();
+        if (i % 13 === 0) { c.fillRect(x, y, 34, 1.3); }
+      }
+      const planet = c.createRadialGradient(W * 0.78, H * 1.25, 60, W * 0.78, H * 1.25, 430);
+      planet.addColorStop(0, '#7fb2c9'); planet.addColorStop(0.55, '#3d6f8e'); planet.addColorStop(1, 'rgba(10,20,36,0)');
+      c.fillStyle = planet; c.beginPath(); c.arc(W * 0.78, H * 1.25, 430, 0, Math.PI * 2); c.fill();
+      c.fillStyle = 'rgba(255,255,255,0.55)'; c.font = '20px system-ui, sans-serif';
+      c.fillText('MAIN VIEWER', 22, H - 18);
+      this.texture.needsUpdate = true; return;
+    }
     c.fillStyle = LCARS.bg; c.fillRect(0, 0, W, H);
     c.fillStyle = LCARS.amber; c.fillRect(0, 0, W, 64);
     c.fillStyle = '#14100a'; c.font = 'bold 30px system-ui, sans-serif';

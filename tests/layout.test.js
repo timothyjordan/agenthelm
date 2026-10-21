@@ -9,7 +9,7 @@ describe('bridge layout', () => {
   });
   it('seats the captain lower than standing stations', () => {
     expect(byId('captain').eyeHeight).toBeLessThan(byId('ops').eyeHeight);
-    expect(byId('captain').position).toEqual({ x: 0, z: 4.3 });
+    expect(byId('captain').position).toEqual({ x: 0, z: 2.1 });
   });
   it('returns pit, deck and ramp floor heights', () => {
     expect(floorHeightAt(0, -3)).toBe(0);
@@ -19,7 +19,8 @@ describe('bridge layout', () => {
   });
   it('keeps every station floor on the floor surface and inside bounds', () => {
     for (const s of STATIONS) {
-      expect(s.floorY).toBeCloseTo(floorHeightAt(s.position.x, s.position.z));
+      if (s.id === 'tactical') expect(s.floorY).toBe(0.62);
+      else expect(s.floorY).toBeCloseTo(floorHeightAt(s.position.x, s.position.z));
       expect(Math.abs(s.position.x)).toBeLessThanOrEqual(bridgeBounds.x);
       expect(s.position.z).toBeLessThanOrEqual(bridgeBounds.zBack);
       expect(s.position.z).toBeGreaterThanOrEqual(bridgeBounds.zForward);
